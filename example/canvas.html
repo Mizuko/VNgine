@@ -1,0 +1,34 @@
+<html>
+	<head>
+		<title>Visual Novel Testbed</title>
+		<link href="stylesheet.css" rel="stylesheet" type="text/css" />
+		<style type="text/css">
+			canvas { 
+				margin:0 auto;
+				display:block;
+				overflow:none;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="cover">
+			<canvas id="vpc" oncontextmenu="return false" width="800" height="600"></canvas>
+			<!-- don't judge a canvas by it's div -->
+		</div>
+		<!-- Craptastic Preloader-->
+		<script type="text/javascript" src="pl.js"></script>
+		
+		<!-- Sprites -->
+		<script type="text/javascript" src="sp.js"></script>
+		
+		<!-- Sprite movement, testing
+		<script type="text/javascript" src="spp.js"></script>
+			-->
+			
+		<!-- Simple Sound loading for cross-browser compatibility-->
+		<script type="text/javascript" src="sd.js"></script>
+		
+		<!-- Visual Novel Engine Prototype -->
+		<script type="text/javascript" src="vn-c.js"></script>
+	</body>
+</html>
