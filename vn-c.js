@@ -1,13 +1,4 @@
-//Version .49
-
-//Report list
-//Ver .43 report, opera might not display text bounds right
-
-//Todo list
-//choices 
-//source; untangle from prototype
-//Effect engine?
-
+//Version .5
 (function() {
 
 var vn = vn || {}; 
