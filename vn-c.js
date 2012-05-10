@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+//Version .5
+>>>>>>> e5675a9ea86b57a4c3e534ebc49047f1adfe6822
 (function() {
 var vn = vn || {}; 
 
