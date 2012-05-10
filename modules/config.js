@@ -73,7 +73,5 @@ vn.config = {
 	    ctx.font = this.fontSize + "px " + this.fontType;
 	    ctx.fillStyle = this.cText;
 	    ctx.textBaseline = 'top';
-	},
-	
-	
+	}	
 };

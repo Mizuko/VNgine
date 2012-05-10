@@ -137,5 +137,3 @@ vn = {
 		vn.config.fontSize = w / 40;
 	}
 };
-
-vn.init = function();

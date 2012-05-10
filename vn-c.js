@@ -1,6 +1,4 @@
-//Version .5
 (function() {
-
 var vn = vn || {}; 
 
 //Base class and general methods
@@ -13,7 +11,30 @@ vn = {
 	main: {},
 	ui: {},
 	
-	init: {},
+	init: function() {
+		vn.canvas = document.getElementById('vpc');
+		vn.ctx = vn.canvas.getContext('2d');
+		//vn.text.clock = vn.config.textSpeed;
+		
+		vn.source.init();
+		
+		//prototype	  
+		resources = [new Sprite(0, 0, "catgrump.jpg"), vn.source.cg, new Image(), new Image(), new Image()];
+		resources[2].src = "catstare.jpg";
+		resources[3].src = "catgrump.jpg";
+		resources[4].src = "catscreen.png";
+		//prototype
+		
+		pl.init(resources.slice(0), vn.canvas, function() {
+			setInterval(vn.draw, Sprite.Fps25Interval);
+			setInterval(vn.update, 1);
+			vn.advanceSource();
+			vn.ui.switchState("text");
+		});
+		
+		vn.adjust();
+		window.addEventListener("resize", vn.adjust, false);
+	},
 	
 	//Finishes displaying the text, or advances to the next text line
 	advance: function() {
@@ -116,190 +137,203 @@ vn = {
 		vn.config.hScale = h/vn.config.hDefault;
 		vn.config.fontSize = w / 40;
 	}
-};
+};//User Interface--textbox, menus, and such fancies, played out in a state machine
+vn.ui = {
+	//all states should have enter, draw, and exit functions
+	text: {},
+	menu: {},
+	log: {},
+	
+	state: "text",
 
-//Configurations and settings
-vn.config = {	
-	//0-1 , decimal % of screen to take up.  Ratio has priority
-	//Set by operator
-	sPercentW: 1,
-	sPercentH: 1,
-	
-	//The screen ratio graphics should be displayed at, ie 4:3, 16:9
-	//Set by operator
-	sRatioW: 4,
-	sRatioH: 3,
-
-	//A border so the canvas area doesn't underlap the sides of it's container
-	//Set by operator
-	border: 15,
-		
-	//The resolution the graphics were designed for.
-	//Set by operator
-	wDefault: 800,
-	hDefault: 600,
-	
-	//The width and height of the text box at default resolution
-	//Set by operator
-	wTextBox: 750,
-	hTextBox: 175,
-	
-	//The width and height of the history at default resolution
-	//Set by operator
-	wHistory: 750,
-	hHistory: 550,
-
-	//The size of the text history, in text boxes
-	//Set by operator
-	historySize: 60,
-	
-	//The gap between the entries in the history, in unscaled pixels
-	//Set by operator
-	historyGap: 25,
-	
-	//The display width and height, and flags to trigger size change.
-	//Set by program.
-	sW: this.wDefault,
-	sH: this.hDefault,
-	
-	//The scale conversion between the default resolution and current resolution
-	//Set by program
-	wScale: 1,
-	hScale: 1,
-	
-	//The font of the text box's text
-	//(Possibly) Set by progam
-	fontType: "PTSansRegular",
-	
-	//The colors of the text and background of the text box
-	//(Possibly) Set by program.
-	cText: "rgba(255,255,255,1)",
-	cTextBox: "rgba(0,0,0,.4)",
-	
-	//Text speed as number of frames to wait before next letter
-	//(Possibly) Set by program
-	textSpeed: 1,
-	
-	//The size of the font, varying on the screen width.
-	//Set by program.
-	fontSizeBase: 20,
-	fontSize: this.fontSizeBase,
-	
-	setFont: function(ctx) {
-		ctx.shadowOffsetX = -2;
-	    ctx.shadowOffsetY = 2;
-	    ctx.shadowBlur = 2;
-	    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-	    ctx.font = this.fontSize + "px " + this.fontType;
-	    ctx.fillStyle = this.cText;
-	    ctx.textBaseline = 'top';
+	switchState: function(state) {
+		this[this.state].exit();
+		this.state = state;
+		this[this.state].enter();
 	},
-	
-	
-};
 
-//Basic history
-//only supports non-interactive entries
-//doesn't support partial scrolling
-vn.history = {
-	entries: [],
-	
-	logCanvas: {},
-	logContext: {},
-	
-	position: 0,
-	
-	addEntry: function(entry) {
-		this.entries.push(entry);
-		if (this.entries.length > vn.config.historySize) {
-			this.entries.splice(0,1);
-		}
-	},
-	
 	draw: function(ctx) {
-		var top, left;
-		var c = vn.config;
-		
-		left = (c.wDefault - c.wHistory)/2;
-		top = (c.hDefault - c.hHistory)/2;
-		
-		if (!(this.logCanvas.tagName && this.logCanvas.tagName.toUpperCase() == "CANVAS")) {
-			this.logCanvas = document.createElement("canvas");
-			this.logContext = this.logCanvas.getContext('2d');
-		}
-		
-		this.logCanvas.width = c.wHistory * c.wScale;
-		this.logCanvas.height = c.hHistory * c.hScale;
-		
-		this.logContext.fillStyle = c.cTextBox;
-		this.logContext.fillRect(0, 0, c.wHistory * c.wScale, c.hHistory * c.hScale);
-		
-		c.setFont(this.logContext);
-		this.logContext.textBaseline = 'bottom';
-		
-		var index = this.entries.length - this.position - 1;
-		var remainingHeight = this.logCanvas.height;
-		
-		while (index >= 0 && remainingHeight > 0) {
-			var entry = this.entries[index];
-			remainingHeight = remainingHeight - entry.height(this.logContext, c.hScale);
-			entry.draw(this.logContext, 0, remainingHeight, c.wScale, c.hScale);
-			remainingHeight = remainingHeight - (c.historyGap * c.hScale);
-			index--;
-		}
-		
-		ctx.drawImage(this.logCanvas, left, top, this.logCanvas.width, this.logCanvas.height);
-	},
-	
-	scrollUp: function(i) {
-		if (!isNaN(parseFloat(i)) && isFinite(i) && i > 1) {
-			this.scrollUp(--i);
-		}
-		
-		if (this.position < this.entries.length - 1) {
-			this.position++;
-		}
-	},
-	
-	scrollDown: function(i) {
-		if (!isNaN(parseFloat(i)) && isFinite(i) && i > 1) {
-			this.scrollDown(--i);
-		}
-		
-		if (this.position != 0) {
-			this.position--;
-		}
+		this[this.state].draw(ctx);
 	}
 };
 
-function HistoryTextEntry(str) {
-	this.string = vn.textFormat(str).split("\n");
-	this.fontSize = vn.config.fontSizeBase;
+//The ui centered around the text box
+vn.ui.text = {
+	draw: function(ctx) {
+		
+	},
+
+	enter: function() {
+		vn.main.unfreeze();
+		this.addListeners();
+		vn.main.showText();
+	},
+
+	exit: function() {
+		this.removeListeners();
+	},
+
+	addListeners: function() {
+		vn.canvas.addEventListener("mousedown", this.clickHandle, false);
+		vn.canvas.addEventListener("mousewheel", this.scrollHandle, false);
+		vn.canvas.addEventListener("DOMMouseScroll", this.scrollHandle, false);
+		document.body.addEventListener("keydown", this.keyHandle, false);
+	},
 	
-	this.height = function(ctx, hScale) {
-		return this.string.length * this.fontSize * hScale;
-	};
+	removeListeners: function() {
+		vn.canvas.removeEventListener("mousedown", this.clickHandle, false);
+		vn.canvas.removeEventListener("mousewheel", this.scrollHandle, false);
+		vn.canvas.removeEventListener("DOMMouseScroll", this.scrollHandle, false);
+		document.body.removeEventListener("keydown", this.keyHandle, false);
+	},
 	
-	this.draw = function(ctx, left, top, wScale, hScale) {
-		for (var i = 0; i < this.string.length; i++) {
-		  ctx.fillText(this.string[i], left + (this.fontSize / 2 * wScale), top + (this.fontSize * i * hScale));
+	//Handles mouse clicks to advance or show menu
+	clickHandle: function(event) {
+		switch (event.button) {
+			case 0: //Left
+				vn.advance();
+				break;
+			case 1: //Middle
+				break;
+			case 2: //Right
+				vn.ui.switchState("menu");
+				break;
 		}
-	};
-}
-
-function HistoryImageEntry(img) {
-	this.image = img;
+	},
 	
-	this.height = function(ctx, hScale) {
-		return this.image.height * hScale;
-	};
+	//Handles keyboard input to advance or show log
+	keyHandle: function(event) {
+		var keyCode = (event.hasOwnProperty("which")) ? event.which : event.keyCode;
+		switch (keyCode) {
+			case 13: //enter
+			case 39: //right
+			case 40: //down
+				vn.advance();
+				break;
+			case 37: //left
+			case 38: //up
+				vn.ui.switchState("log");
+				break;
+			default:
+				break;
+		}
+	},
 	
-	this.draw = function(ctx, left, top, wScale, hScale) {
-		ctx.drawImage(this.image, left, top, this.image.width * wScale, this.image.height * hScale);
-	};
-}
+	//Handles mousewheel scrolling to advance or show log
+	scrollHandle: function(event) {
+		event.hasOwnProperty("wheelDelta")
+			? event.wheelDelta < 0  
+				? vn.advance() 
+				: vn.ui.switchState("log")
+			: event.detail > 0  
+				? vn.advance() 
+				: vn.ui.switchState("log")
+		;
+	}
+};
 
-//The source of the vn, essentally a list of commands for the engine to execute
+//The menu for the user interface
+vn.ui.menu = {
+	draw: function(ctx) {
+		
+	},
+	
+	enter: function() {
+		vn.main.freeze();
+		vn.main.hideText();
+		this.addListeners();
+	},
+
+	exit: function() {
+		this.removeListeners();
+	},
+
+	addListeners: function() {
+		vn.canvas.addEventListener("mousedown", this.clickHandle, false);
+	},
+	
+	removeListeners: function() {
+		vn.canvas.removeEventListener("mousedown", this.clickHandle, false);
+	},
+	
+	clickHandle: function() {
+		vn.ui.switchState("text");
+	}
+};
+
+//The log state for the user interface
+vn.ui.log = {	
+	draw: function(ctx) {
+		vn.history.draw(ctx);
+	},
+
+	enter: function() {
+		vn.main.freeze();
+		vn.main.hideText();
+		this.addListeners();
+	},
+
+	exit: function() {
+		this.removeListeners();
+	},
+	
+	addListeners: function() {
+		vn.canvas.addEventListener("mousedown", this.clickHandle, false);
+		vn.canvas.addEventListener("mousewheel", this.scrollHandle, false);
+		vn.canvas.addEventListener("DOMMouseScroll", this.scrollHandle, false);
+		document.body.addEventListener("keydown", this.keyHandle, false);
+	},
+	
+	removeListeners: function() {
+		vn.canvas.removeEventListener("mousedown", this.clickHandle, false);
+		vn.canvas.removeEventListener("mousewheel", this.scrollHandle, false);
+		vn.canvas.removeEventListener("DOMMouseScroll", this.scrollHandle, false);
+		document.body.removeEventListener("keydown", this.keyHandle, false);
+	},
+	
+	clickHandle: function(event) {
+		switch (event.button) {
+			case 0: //Left
+				vn.ui.switchState("text");
+				break;
+			case 1: //Middle
+				break;
+			case 2: //Right
+				vn.ui.switchState("menu");
+				break;
+		}
+	},
+	
+	keyHandle: function(event) {
+		var keyCode = (event.hasOwnProperty("which")) ? event.which : event.keyCode;
+		switch (keyCode) {
+			case 13: //enter
+			case 39: //right
+			case 37: //left
+				vn.ui.switchState("text");
+				break;
+			case 38: //up
+				vn.history.scrollUp();
+				break;
+			case 40: //down
+				vn.history.scrollDown();
+				break;
+			default:
+				break;
+		}
+	},
+	
+	scrollHandle: function(event) {
+		event.hasOwnProperty("wheelDelta")
+			? event.wheelDelta < 0  
+				? vn.history.scrollDown()	//down
+				: vn.history.scrollUp()		//up
+			: event.detail > 0  
+				? vn.history.scrollDown()	//down
+				: vn.history.scrollUp()		//up
+		;
+	}
+};//The source of the vn, essentally a list of commands for the engine to execute
 //Prototype source; runs cats
 vn.source = {
 	
@@ -348,7 +382,6 @@ vn.source = {
 		}
 	}
 };
-
 //Collection of images in the main part of the window
 vn.main = {
 	images: {},
@@ -550,231 +583,180 @@ vn.main.text = {
 		this.reset();
 		this.pallet = vn.textFormat(str);
 	}
-};
-
-//User Interface--textbox, menus, and such fancies, played out in a state machine
-vn.ui = {
-	//all states should have enter, draw, and exit functions
-	text: {},
-	menu: {},
-	log: {},
+};//Basic history
+//only supports non-interactive entries
+//doesn't support partial scrolling
+vn.history = {
+	entries: [],
 	
-	state: "text",
-
-	switchState: function(state) {
-		this[this.state].exit();
-		this.state = state;
-		this[this.state].enter();
+	logCanvas: {},
+	logContext: {},
+	
+	position: 0,
+	
+	addEntry: function(entry) {
+		this.entries.push(entry);
+		if (this.entries.length > vn.config.historySize) {
+			this.entries.splice(0,1);
+		}
 	},
-
+	
 	draw: function(ctx) {
-		this[this.state].draw(ctx);
-	}
-};
-
-//The ui centered around the text box
-vn.ui.text = {
-	draw: function(ctx) {
+		var top, left;
+		var c = vn.config;
 		
-	},
-
-	enter: function() {
-		vn.main.unfreeze();
-		this.addListeners();
-		vn.main.showText();
-	},
-
-	exit: function() {
-		this.removeListeners();
-	},
-
-	addListeners: function() {
-		vn.canvas.addEventListener("mousedown", this.clickHandle, false);
-		vn.canvas.addEventListener("mousewheel", this.scrollHandle, false);
-		vn.canvas.addEventListener("DOMMouseScroll", this.scrollHandle, false);
-		document.body.addEventListener("keydown", this.keyHandle, false);
-	},
-	
-	removeListeners: function() {
-		vn.canvas.removeEventListener("mousedown", this.clickHandle, false);
-		vn.canvas.removeEventListener("mousewheel", this.scrollHandle, false);
-		vn.canvas.removeEventListener("DOMMouseScroll", this.scrollHandle, false);
-		document.body.removeEventListener("keydown", this.keyHandle, false);
-	},
-	
-	//Handles mouse clicks to advance or show menu
-	clickHandle: function(event) {
-		switch (event.button) {
-			case 0: //Left
-				vn.advance();
-				break;
-			case 1: //Middle
-				break;
-			case 2: //Right
-				vn.ui.switchState("menu");
-				break;
-		}
-	},
-	
-	//Handles keyboard input to advance or show log
-	keyHandle: function(event) {
-		var keyCode = (event.hasOwnProperty("which")) ? event.which : event.keyCode;
-		switch (keyCode) {
-			case 13: //enter
-			case 39: //right
-			case 40: //down
-				vn.advance();
-				break;
-			case 37: //left
-			case 38: //up
-				vn.ui.switchState("log");
-				break;
-			default:
-				break;
-		}
-	},
-	
-	//Handles mousewheel scrolling to advance or show log
-	scrollHandle: function(event) {
-		event.hasOwnProperty("wheelDelta")
-			? event.wheelDelta < 0  
-				? vn.advance() 
-				: vn.ui.switchState("log")
-			: event.detail > 0  
-				? vn.advance() 
-				: vn.ui.switchState("log")
-		;
-	}
-};
-
-//The menu for the user interface
-vn.ui.menu = {
-	draw: function(ctx) {
+		left = (c.wDefault - c.wHistory)/2;
+		top = (c.hDefault - c.hHistory)/2;
 		
+		if (!(this.logCanvas.tagName && this.logCanvas.tagName.toUpperCase() == "CANVAS")) {
+			this.logCanvas = document.createElement("canvas");
+			this.logContext = this.logCanvas.getContext('2d');
+		}
+		
+		this.logCanvas.width = c.wHistory * c.wScale;
+		this.logCanvas.height = c.hHistory * c.hScale;
+		
+		this.logContext.fillStyle = c.cTextBox;
+		this.logContext.fillRect(0, 0, c.wHistory * c.wScale, c.hHistory * c.hScale);
+		
+		c.setFont(this.logContext);
+		this.logContext.textBaseline = 'bottom';
+		
+		var index = this.entries.length - this.position - 1;
+		var remainingHeight = this.logCanvas.height;
+		
+		while (index >= 0 && remainingHeight > 0) {
+			var entry = this.entries[index];
+			remainingHeight = remainingHeight - entry.height(this.logContext, c.hScale);
+			entry.draw(this.logContext, 0, remainingHeight, c.wScale, c.hScale);
+			remainingHeight = remainingHeight - (c.historyGap * c.hScale);
+			index--;
+		}
+		
+		ctx.drawImage(this.logCanvas, left, top, this.logCanvas.width, this.logCanvas.height);
 	},
 	
-	enter: function() {
-		vn.main.freeze();
-		vn.main.hideText();
-		this.addListeners();
-	},
-
-	exit: function() {
-		this.removeListeners();
-	},
-
-	addListeners: function() {
-		vn.canvas.addEventListener("mousedown", this.clickHandle, false);
-	},
-	
-	removeListeners: function() {
-		vn.canvas.removeEventListener("mousedown", this.clickHandle, false);
-	},
-	
-	clickHandle: function() {
-		vn.ui.switchState("text");
-	}
-};
-
-//The log state for the user interface
-vn.ui.log = {	
-	draw: function(ctx) {
-		vn.history.draw(ctx);
-	},
-
-	enter: function() {
-		vn.main.freeze();
-		vn.main.hideText();
-		this.addListeners();
-	},
-
-	exit: function() {
-		this.removeListeners();
-	},
-	
-	addListeners: function() {
-		vn.canvas.addEventListener("mousedown", this.clickHandle, false);
-		vn.canvas.addEventListener("mousewheel", this.scrollHandle, false);
-		vn.canvas.addEventListener("DOMMouseScroll", this.scrollHandle, false);
-		document.body.addEventListener("keydown", this.keyHandle, false);
-	},
-	
-	removeListeners: function() {
-		vn.canvas.removeEventListener("mousedown", this.clickHandle, false);
-		vn.canvas.removeEventListener("mousewheel", this.scrollHandle, false);
-		vn.canvas.removeEventListener("DOMMouseScroll", this.scrollHandle, false);
-		document.body.removeEventListener("keydown", this.keyHandle, false);
-	},
-	
-	clickHandle: function(event) {
-		switch (event.button) {
-			case 0: //Left
-				vn.ui.switchState("text");
-				break;
-			case 1: //Middle
-				break;
-			case 2: //Right
-				vn.ui.switchState("menu");
-				break;
+	scrollUp: function(i) {
+		if (!isNaN(parseFloat(i)) && isFinite(i) && i > 1) {
+			this.scrollUp(--i);
+		}
+		
+		if (this.position < this.entries.length - 1) {
+			this.position++;
 		}
 	},
 	
-	keyHandle: function(event) {
-		var keyCode = (event.hasOwnProperty("which")) ? event.which : event.keyCode;
-		switch (keyCode) {
-			case 13: //enter
-			case 39: //right
-			case 37: //left
-				vn.ui.switchState("text");
-				break;
-			case 38: //up
-				vn.history.scrollUp();
-				break;
-			case 40: //down
-				vn.history.scrollDown();
-				break;
-			default:
-				break;
+	scrollDown: function(i) {
+		if (!isNaN(parseFloat(i)) && isFinite(i) && i > 1) {
+			this.scrollDown(--i);
 		}
-	},
-	
-	scrollHandle: function(event) {
-		event.hasOwnProperty("wheelDelta")
-			? event.wheelDelta < 0  
-				? vn.history.scrollDown()	//down
-				: vn.history.scrollUp()		//up
-			: event.detail > 0  
-				? vn.history.scrollDown()	//down
-				: vn.history.scrollUp()		//up
-		;
+		
+		if (this.position != 0) {
+			this.position--;
+		}
 	}
 };
 
-vn.init = function(){
-	vn.canvas = document.getElementById('vpc');
-	vn.ctx = vn.canvas.getContext('2d');
-	//vn.text.clock = vn.config.textSpeed;
+function HistoryTextEntry(str) {
+	this.string = vn.textFormat(str).split("\n");
+	this.fontSize = vn.config.fontSizeBase;
 	
-	vn.source.init();
+	this.height = function(ctx, hScale) {
+		return this.string.length * this.fontSize * hScale;
+	};
 	
-	//prototype	  
-	resources = [new Sprite(0, 0, "catgrump.jpg"), vn.source.cg, new Image(), new Image(), new Image()];
-	resources[2].src = "catstare.jpg";
-	resources[3].src = "catgrump.jpg";
-	resources[4].src = "catscreen.png";
-	//prototype
+	this.draw = function(ctx, left, top, wScale, hScale) {
+		for (var i = 0; i < this.string.length; i++) {
+		  ctx.fillText(this.string[i], left + (this.fontSize / 2 * wScale), top + (this.fontSize * i * hScale));
+		}
+	};
+}
+
+function HistoryImageEntry(img) {
+	this.image = img;
 	
-	pl.init(resources.slice(0), vn.canvas, function() {
-		setInterval(vn.draw, Sprite.Fps25Interval);
-		setInterval(vn.update, 1);
-		vn.advanceSource();
-		vn.ui.switchState("text");
-	});
+	this.height = function(ctx, hScale) {
+		return this.image.height * hScale;
+	};
 	
-	vn.adjust();
-	window.addEventListener("resize", vn.adjust, false);
+	this.draw = function(ctx, left, top, wScale, hScale) {
+		ctx.drawImage(this.image, left, top, this.image.width * wScale, this.image.height * hScale);
+	};
+}//Configurations and settings
+vn.config = {	
+	//0-1 , decimal % of screen to take up.  Ratio has priority
+	//Set by operator
+	sPercentW: 1,
+	sPercentH: 1,
+	
+	//The screen ratio graphics should be displayed at, ie 4:3, 16:9
+	//Set by operator
+	sRatioW: 4,
+	sRatioH: 3,
+
+	//A border so the canvas area doesn't underlap the sides of it's container
+	//Set by operator
+	border: 15,
+		
+	//The resolution the graphics were designed for.
+	//Set by operator
+	wDefault: 800,
+	hDefault: 600,
+	
+	//The width and height of the text box at default resolution
+	//Set by operator
+	wTextBox: 750,
+	hTextBox: 175,
+	
+	//The width and height of the history at default resolution
+	//Set by operator
+	wHistory: 750,
+	hHistory: 550,
+
+	//The size of the text history, in text boxes
+	//Set by operator
+	historySize: 60,
+	
+	//The gap between the entries in the history, in unscaled pixels
+	//Set by operator
+	historyGap: 25,
+	
+	//The display width and height, and flags to trigger size change.
+	//Set by program.
+	sW: this.wDefault,
+	sH: this.hDefault,
+	
+	//The scale conversion between the default resolution and current resolution
+	//Set by program
+	wScale: 1,
+	hScale: 1,
+	
+	//The font of the text box's text
+	//(Possibly) Set by progam
+	fontType: "PTSansRegular",
+	
+	//The colors of the text and background of the text box
+	//(Possibly) Set by program.
+	cText: "rgba(255,255,255,1)",
+	cTextBox: "rgba(0,0,0,.4)",
+	
+	//Text speed as number of frames to wait before next letter
+	//(Possibly) Set by program
+	textSpeed: 1,
+	
+	//The size of the font, varying on the screen width.
+	//Set by program.
+	fontSizeBase: 20,
+	fontSize: this.fontSizeBase,
+	
+	setFont: function(ctx) {
+		ctx.shadowOffsetX = -2;
+	    ctx.shadowOffsetY = 2;
+	    ctx.shadowBlur = 2;
+	    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+	    ctx.font = this.fontSize + "px " + this.fontType;
+	    ctx.fillStyle = this.cText;
+	    ctx.textBaseline = 'top';
+	}	
 };
-
-vn.init();
-
-})();
+vn.init();})();
